@@ -468,21 +468,33 @@
         /* --- Projections Grid --- */
         .projections-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Adaptive columns */
-            gap: 15px;
+            grid-template-columns: repeat(7, 1fr); /* Force 7 equal columns */
+            gap: 8px; /* Compact gap */
             background: #f8f8f8;
-            padding: 20px;
+            padding: 15px 10px;
             border-radius: 4px;
             border: 1px solid #eee;
+            overflow-x: visible; /* Remove scroll */
+        }
+        
+        /* Mobile adjustment for grid */
+        @media (max-width: 600px) {
+            .projections-grid {
+                /* On extremely small screens, this will squish, 
+                   but user requested "condense to fit page" */
+                gap: 4px;
+                padding: 10px 5px;
+            }
         }
 
         .projection-item {
             background: white;
-            padding: 15px;
+            padding: 10px 4px;
             border-radius: 4px;
             border: 1px solid #ddd;
             text-align: center;
             transition: box-shadow 0.2s;
+            min-width: 0; /* Allows items to shrink below content size if needed */
         }
 
         .projection-item:hover {
@@ -495,14 +507,15 @@
             font-weight: 800;
             color: var(--chili-dark);
             text-transform: uppercase;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
+            margin-bottom: 5px;
+            font-size: 0.75rem; /* Smaller font for condensed view */
+            line-height: 1.1;
         }
 
         .projection-input {
             width: 100%;
-            padding: 10px;
-            font-size: 1.1rem;
+            padding: 6px 2px;
+            font-size: 0.95rem;
             font-weight: 700;
             color: #333;
             border: 1px solid #ccc;
@@ -514,7 +527,7 @@
         .projection-input:focus {
             outline: none;
             border-color: var(--chili-red);
-            box-shadow: 0 0 0 3px rgba(173, 46, 36, 0.1);
+            box-shadow: 0 0 0 2px rgba(173, 46, 36, 0.1);
         }
 
         .setting-item {
@@ -895,7 +908,7 @@
             <div class="card">
                 <h3>Weekly Sales Projections</h3>
                 <p style="margin-bottom: 20px; color: #555; font-size: 0.95rem;">
-                    Enter your projected sales amount ($) for each day of the week.
+                    Enter your projected sales amount ($) for each day of the week starting from the most recent Sunday.
                 </p>
                 
                 <div id="projectionsGrid" class="projections-grid">
@@ -1556,25 +1569,60 @@
         const container = document.getElementById('projectionsGrid');
         container.innerHTML = '';
         
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        
-        days.forEach(day => {
+        // Logic for "Most Recent Sunday"
+        // If today is Sunday, we start today. 
+        // If today is Mon-Sat, we go back to last Sunday.
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0 is Sunday
+        const diff = today.getDate() - dayOfWeek; 
+        const sunday = new Date(today.setDate(diff));
+
+        // Create array of 7 days starting from that Sunday
+        const weekDates = [];
+        for(let i=0; i<7; i++) {
+            const d = new Date(sunday);
+            d.setDate(sunday.getDate() + i);
+            weekDates.push(d);
+        }
+
+        weekDates.forEach(dateObj => {
+            const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            const dateStr = dateObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+            
             const div = document.createElement('div');
             div.className = 'projection-item';
             
-            const val = salesProjections[day] || 0;
+            const rawVal = salesProjections[dayName] || 0;
+            // Format existing value with commas for display
+            const formattedVal = rawVal.toLocaleString('en-US'); 
             
             div.innerHTML = `
-                <span class="projection-label">${day}</span>
-                <input type="number" 
-                       id="proj_${day}" 
+                <span class="projection-label">
+                    ${dayName}
+                    <div style="font-weight:400; color:#666; font-size:0.8em; margin-top:2px;">${dateStr}</div>
+                </span>
+                <input type="text" 
+                       id="proj_${dayName}" 
                        class="projection-input" 
-                       value="${val}" 
-                       min="0"
-                       placeholder="0">
+                       value="${formattedVal}" 
+                       placeholder="0"
+                       onkeyup="formatCurrency(this)"
+                       onblur="formatCurrency(this)">
             `;
             container.appendChild(div);
         });
+    }
+
+    // New helper to format input with commas
+    function formatCurrency(input) {
+        // Remove non-digit chars
+        let val = input.value.replace(/[^0-9]/g, '');
+        if(!val) {
+             input.value = '';
+             return;
+        }
+        // Format with commas
+        input.value = parseInt(val).toLocaleString('en-US');
     }
 
     function saveProjections() {
@@ -1583,7 +1631,9 @@
         days.forEach(day => {
             const input = document.getElementById(`proj_${day}`);
             if(input) {
-                salesProjections[day] = parseFloat(input.value) || 0;
+                // Strip commas before saving as number
+                const rawVal = input.value.replace(/,/g, '');
+                salesProjections[day] = parseFloat(rawVal) || 0;
             }
         });
         
