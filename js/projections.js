@@ -9,12 +9,14 @@ function renderProjections() {
 
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = Sunday
-    const sunday = new Date(today);
-    sunday.setDate(today.getDate() - dayOfWeek);
+    // Calculate Monday as start of week (Monday = 1, so shift Sunday to 7)
+    const diffToMonday = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + diffToMonday);
 
     for (let i = 0; i < 7; i++) {
-        const dateObj = new Date(sunday);
-        dateObj.setDate(sunday.getDate() + i);
+        const dateObj = new Date(monday);
+        dateObj.setDate(monday.getDate() + i);
 
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
         const dateStr = dateObj.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
@@ -61,5 +63,7 @@ function saveProjections() {
     });
 
     localStorage.setItem('salesProjections', JSON.stringify(AppState.salesProjections));
+    applyProjectedUsage();
+    renderSettings();
     showToast('Sales projections saved successfully!');
 }

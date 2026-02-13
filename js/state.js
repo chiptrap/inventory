@@ -8,6 +8,7 @@
 const DEFAULTS = {
     maxInventory: {
         "Limes, 40#": 2, "Lettuce": 9, "Cilantro": 16, "Chicken": 28, "Steak": 9,
+        "Carnitas": 4, "Barbacoa": 4, "Chips Pre-Cut, Unfried": 4,
         "Adobo Marinade 30 lb": 2, "Queso": 2, "Sofritas": 2, "Lemon/Lime Juice": 3, "Cheese": 6,
         "Corn w/ Poblano Mix": 12, "Bell Peppers": 10, "Tomato": 21, "Avocados": 27,
         "Burrito Size Tortilla 144 ct": 10, "Flour Tortilla": 2, "Taco Size Crispy Corn Tortilla PF, 240 ct": 2,
@@ -18,11 +19,14 @@ const DEFAULTS = {
     usageRates: {
         "Adobo Marinade 30 lb": 0.0100,
         "Avocados": 0.5200,
+        "Barbacoa": 0,
         "Bell Peppers": 0.1824,
         "Black beans": 0.1765,
         "Burrito Size Tortilla 144 ct": 0.1765,
+        "Carnitas": 0,
         "Cheese": 0.1294,
         "Chicken": 0.4441,
+        "Chips Pre-Cut, Unfried": 0,
         "Cilantro": 0.3235,
         "Clementine Oranges": 0.0147,
         "Corn w/ Poblano Mix": 0.2600,
@@ -44,6 +48,7 @@ const DEFAULTS = {
 
     consumption: {
         "Limes, 40#": .2, "Lettuce": 2.5, "Cilantro": 4, "Chicken": 6, "Steak": 2.5,
+        "Carnitas": 1, "Barbacoa": 1, "Chips Pre-Cut, Unfried": 2,
         "Adobo Marinade 30 lb": 0.33, "Queso": 1, "Sofritas": 0.5, "Lemon/Lime Juice": 0.5, "Cheese": 2,
         "Corn w/ Poblano Mix": 3.5, "Bell Peppers": 2.5, "Tomato": 5, "Avocados": 6,
         "Burrito Size Tortilla 144 ct": 2.5, "Flour Tortilla": 0.5, "Taco Size Crispy Corn Tortilla PF, 240 ct": .3,
@@ -72,10 +77,16 @@ const AppState = {
     globalCurrentDate: new Date()
 };
 
-// Ensure usagePerThousand has keys for all items in defaultMaxInventory
+// Ensure all default keys exist in live state (merges new items into saved data)
 Object.keys(DEFAULTS.maxInventory).forEach(key => {
+    if (AppState.maxInventory[key] === undefined) {
+        AppState.maxInventory[key] = DEFAULTS.maxInventory[key];
+    }
+    if (AppState.consumptionDict[key] === undefined) {
+        AppState.consumptionDict[key] = DEFAULTS.consumption[key] || 0;
+    }
     if (AppState.usagePerThousand[key] === undefined) {
-        AppState.usagePerThousand[key] = 0;
+        AppState.usagePerThousand[key] = DEFAULTS.usageRates[key] || 0;
     }
 });
 

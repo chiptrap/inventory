@@ -47,9 +47,40 @@ function updateFromMax(key, value) {
     renderUsageSettings();
 }
 
-// --- APPLY 15K USAGE TO ITEM LIMITS ---
+// --- APPLY PROJECTED USAGE TO ITEM LIMITS ---
+
+/**
+ * Silently recalculates daily usage for all items based on today's projected sales.
+ * Called on load and whenever projections are saved.
+ */
+function applyProjectedUsage() {
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    const projectedSales = AppState.salesProjections[dayName] || 0;
+    const multiplier = projectedSales / 1000;
+
+    Object.keys(AppState.usagePerThousand).forEach(key => {
+        const upt = AppState.usagePerThousand[key] || 0;
+        AppState.consumptionDict[key] = parseFloat((upt * multiplier).toFixed(2));
+    });
+
+    persistAll();
+}
 
 function applyUsageToSettings() {
+    // Get today's day name and projected sales
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    const projectedSales = AppState.salesProjections[dayName] || 0;
+
+    // Update the modal text to show today's projection
+    const modalContent = document.querySelector('#apply15kModal .modal-content');
+    if (modalContent) {
+        const projFormatted = projectedSales.toLocaleString('en-US');
+        modalContent.querySelector('h3').textContent = `Apply ${dayName}'s Projected Usage`;
+        modalContent.querySelector('p').innerHTML = `This will overwrite <strong>Daily Usage</strong> for all items in the <strong>Item Limits</strong> section using today's projected sales of <strong>$${projFormatted}</strong>.`;
+    }
+
     openApply15kModal();
 }
 
@@ -59,20 +90,18 @@ function confirmApply15k() {
 }
 
 function proceedWithApplyUsage() {
-    const allKeys = Object.keys(AppState.usagePerThousand);
-    let count = 0;
+    applyProjectedUsage();
 
-    allKeys.forEach(key => {
-        const upt = AppState.usagePerThousand[key] || 0;
-        AppState.consumptionDict[key] = parseFloat((upt * 15).toFixed(2));
-        count++;
-    });
+    const today = new Date();
+    const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
+    const projectedSales = AppState.salesProjections[dayName] || 0;
+    const count = Object.keys(AppState.usagePerThousand).length;
 
-    saveSettings();
     renderSettings();
     switchSection('settings');
     switchSettingsTab('set-limits');
-    showToast(`Updated and saved Daily Usage for ${count} items based on 15k sales.`);
+    const salesFormatted = projectedSales.toLocaleString('en-US');
+    showToast(`Updated Daily Usage for ${count} items based on ${dayName}'s $${salesFormatted} projection.`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -159,7 +188,10 @@ function convertUnits(name, val) {
     if (lower.includes("cheese"))  return parseFloat((val / 42).toFixed(4));
     if (lower.includes("chicken")) return parseFloat((val / 44).toFixed(4));
     if (lower.includes("limes"))   return parseFloat((val / 40).toFixed(4));
-    if (lower.includes("steak"))   return parseFloat((val / 40).toFixed(4));
+    if (lower.includes("steak"))    return parseFloat((val / 40).toFixed(4));
+    if (lower.includes("carnitas")) return parseFloat((val / 40).toFixed(4));
+    if (lower.includes("barbacoa")) return parseFloat((val / 40).toFixed(4));
+    if (lower.includes("chips"))    return parseFloat((val / 32).toFixed(4));
     return val;
 }
 

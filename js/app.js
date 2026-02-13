@@ -5,7 +5,9 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initDates();
+    applyProjectedUsage();
     renderSettings();
     renderUsageSettings();
     renderProjections();
+    renderLtoTiles();
 });

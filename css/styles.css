@@ -689,3 +689,50 @@ input[type=number] {
     display: block;
     animation: fadeIn 0.2s ease;
 }
+
+/* --- LTO Tiles --- */
+.lto-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.lto-tile {
+    position: relative;
+    background: white;
+    border: 2px solid #ccc;
+    border-radius: 6px;
+    padding: 16px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.lto-tile:hover {
+    border-color: var(--chili-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.lto-tile.active {
+    background-color: var(--chili-dark);
+    border-color: var(--chili-dark);
+    color: white;
+    box-shadow: 0 4px 12px rgba(69,20,0,0.25);
+}
+
+.lto-tile-check {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.lto-tile-label {
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    letter-spacing: 0.5px;
+}
