@@ -113,13 +113,13 @@
                 <table id="resultsTable">
                     <thead>
                         <tr>
-                            <th>Item Name</th>
-                            <th>On Hand</th>
-                            <th>In Transit</th>
-                            <th>On Order</th>
-                            <th>Est. Inventory</th>
-                            <th>Variance</th>
-                            <th>Status</th>
+                            <th class="sortable" data-sort="name" onclick="sortResultsTable('name')">Item Name <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="onHand" onclick="sortResultsTable('onHand')">On Hand <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="inTransit" onclick="sortResultsTable('inTransit')">In Transit <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="amountToOrder" onclick="sortResultsTable('amountToOrder')">On Order <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="estimatedInventory" onclick="sortResultsTable('estimatedInventory')">Est. Inventory <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="diff" onclick="sortResultsTable('diff')">Variance <span class="sort-arrow"></span></th>
+                            <th class="sortable" data-sort="isOver" onclick="sortResultsTable('isOver')">Status <span class="sort-arrow"></span></th>
                         </tr>
                     </thead>
                     <tbody></tbody>

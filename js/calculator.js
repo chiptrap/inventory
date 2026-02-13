@@ -3,6 +3,11 @@
  * CSV parsing, order verification workflow, and results rendering.
  */
 
+// --- SORT STATE ---
+let _lastProcessedData = [];
+let _currentSortColumn = null;
+let _currentSortDirection = null; // 'asc' or 'desc'
+
 // --- VERIFICATION FLOW ---
 
 function initiateVerification() {
@@ -192,17 +197,34 @@ function calculateAndRender(data) {
         return;
     }
 
-    // Sort: over-orders first, then alphabetical
+    // Store for re-sorting later
+    _lastProcessedData = processedData;
+    _currentSortColumn = null;
+    _currentSortDirection = null;
+
+    // Default sort: over-orders first, then under-orders, then OK — alphabetical within each group
     processedData.sort((a, b) => {
-        if (a.isOver === b.isOver) return a.name.localeCompare(b.name);
-        return a.isOver ? -1 : 1;
+        const priorityA = a.isOver ? 0 : a.isUnder ? 1 : 2;
+        const priorityB = b.isOver ? 0 : b.isUnder ? 1 : 2;
+        if (priorityA !== priorityB) return priorityA - priorityB;
+        return a.name.localeCompare(b.name);
     });
+
+    // Clear any active sort indicators
+    updateSortIndicators(null, null);
+
+    let underOrderCount = 0;
 
     processedData.forEach(item => {
         if (item.isOver) overOrderCount++;
+        if (item.isUnder) underOrderCount++;
 
         const tr = document.createElement('tr');
         if (item.isOver) tr.classList.add('over-order');
+        else if (item.isUnder) tr.classList.add('under-order');
+
+        const statusColor = item.isOver ? '#d32f2f' : item.isUnder ? '#b8860b' : '#2e7d32';
+        const statusText = item.isOver ? 'OVER ORDER' : item.isUnder ? 'UNDER ORDER' : 'OK';
 
         tr.innerHTML = `
             <td><strong>${item.name}</strong></td>
@@ -211,8 +233,8 @@ function calculateAndRender(data) {
             <td>${item.amountToOrder.toFixed(2)}</td>
             <td>${item.estimatedInventory.toFixed(2)}</td>
             <td>${item.diff.toFixed(2)}</td>
-            <td><span style="font-weight:800; color:${item.isOver ? '#d32f2f' : '#2e7d32'}">
-                ${item.isOver ? 'OVER ORDER' : 'OK'}
+            <td><span style="font-weight:800; color:${statusColor}">
+                ${statusText}
             </span></td>
         `;
         tbody.appendChild(tr);
@@ -221,8 +243,9 @@ function calculateAndRender(data) {
     document.getElementById('resultsCard').style.display = 'block';
 
     const dayName = shipment.toLocaleDateString('en-US', { weekday: 'long' });
+    const issues = overOrderCount + underOrderCount;
     document.getElementById('summaryText').innerText =
-        `${dayName} Shipment • ${overOrderCount} Issues Found`;
+        `${dayName} Shipment • ${issues} Issue${issues !== 1 ? 's' : ''} Found`;
 
     document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth' });
 }
@@ -257,13 +280,86 @@ function processRow(row, currentDate, shipmentDate, daysUntilShipment) {
     let diff = maxInv - estimatedInventory;
     if (row.amountToOrder === 0 && diff < 0) diff = 0;
 
+    const isOver = diff < 0;
+    const isUnder = !isOver && estimatedInventory < 1;
+
     return {
         ...row,
         matchedKey,
         estimatedInventory,
         diff,
-        isOver: diff < 0
+        isOver,
+        isUnder
     };
+}
+
+// --- TABLE SORTING ---
+
+function sortResultsTable(column) {
+    if (_lastProcessedData.length === 0) return;
+
+    // Toggle direction: if same column, flip; otherwise start ascending
+    if (_currentSortColumn === column) {
+        _currentSortDirection = _currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        _currentSortColumn = column;
+        _currentSortDirection = 'asc';
+    }
+
+    const dir = _currentSortDirection === 'asc' ? 1 : -1;
+
+    _lastProcessedData.sort((a, b) => {
+        const valA = a[column];
+        const valB = b[column];
+
+        // Booleans (Status column)
+        if (typeof valA === 'boolean') {
+            return (valA === valB) ? 0 : (valA ? -dir : dir);
+        }
+        // Strings
+        if (typeof valA === 'string') {
+            return dir * valA.localeCompare(valB);
+        }
+        // Numbers
+        return dir * (valA - valB);
+    });
+
+    // Re-render rows
+    const tbody = document.querySelector('#resultsTable tbody');
+    tbody.innerHTML = '';
+
+    _lastProcessedData.forEach(item => {
+        const tr = document.createElement('tr');
+        if (item.isOver) tr.classList.add('over-order');
+        else if (item.isUnder) tr.classList.add('under-order');
+
+        const statusColor = item.isOver ? '#d32f2f' : item.isUnder ? '#b8860b' : '#2e7d32';
+        const statusText = item.isOver ? 'OVER ORDER' : item.isUnder ? 'UNDER ORDER' : 'OK';
+
+        tr.innerHTML = `
+            <td><strong>${item.name}</strong></td>
+            <td>${item.onHand.toFixed(2)}</td>
+            <td>${item.inTransit.toFixed(2)}</td>
+            <td>${item.amountToOrder.toFixed(2)}</td>
+            <td>${item.estimatedInventory.toFixed(2)}</td>
+            <td>${item.diff.toFixed(2)}</td>
+            <td><span style="font-weight:800; color:${statusColor}">
+                ${statusText}
+            </span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    updateSortIndicators(column, _currentSortDirection);
+}
+
+function updateSortIndicators(activeColumn, direction) {
+    document.querySelectorAll('#resultsTable th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (activeColumn && th.dataset.sort === activeColumn) {
+            th.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+        }
+    });
 }
 
 /**
