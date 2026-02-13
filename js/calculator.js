@@ -280,7 +280,7 @@ function processRow(row, currentDate, shipmentDate, daysUntilShipment) {
     let diff = maxInv - estimatedInventory;
     if (row.amountToOrder === 0 && diff < 0) diff = 0;
 
-    const isOver = diff < 0;
+    const isOver = diff < -0.5;
     const isUnder = !isOver && estimatedInventory < 1;
 
     return {
