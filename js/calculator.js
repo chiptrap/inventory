@@ -64,32 +64,44 @@ function processFile() {
             // Save parsed results to Firestore (non-blocking)
             // Use _lastProcessedData which has the calculated diff & variance
             if (window.saveToFirestore && _lastProcessedData && _lastProcessedData.length > 0) {
-                // 1. Update running variance totals
-                if (window.updateVarianceTotals) {
-                    window.updateVarianceTotals(_lastProcessedData);
-                }
+                
+                // Filter for only negative variance (waste)
+                const wasteData = _lastProcessedData.filter(item => item.diff < 0);
 
-                // 2. Save individual report (only name & variance as requested)
-                const shipmentVal = document.getElementById('selectedShipmentDateValue').value;
-                const payload = {
-                    fileName: file.name,
-                    currentDate: AppState.globalCurrentDate.toISOString(),
-                    shipmentDate: shipmentVal,
-                    itemCount: _lastProcessedData.length,
-                    items: _lastProcessedData.map(function (row) {
-                        return {
-                            name: row.name,
-                            diff: row.diff
-                        };
-                    })
-                };
-                window.saveToFirestore('inventory-results', payload)
-                    .then(function (id) {
-                        console.log('[Firebase] Inventory results saved, doc:', id);
-                    })
-                    .catch(function (err) {
-                        console.warn('[Firebase] Firestore save failed:', err);
-                    });
+                if (wasteData.length > 0) {
+                    // 1. Update running variance totals (only for waste items, converted to positive)
+                    if (window.updateVarianceTotals) {
+                        // Create a mapped array with positive diffs effectively
+                        const positiveWasteData = wasteData.map(item => ({
+                            ...item,
+                            diff: Math.abs(item.diff) // Store as positive "waste saved"
+                        }));
+                        window.updateVarianceTotals(positiveWasteData);
+                    }
+
+                    // 2. Save individual report (only name & positive waste for waste items)
+                    const shipmentVal = document.getElementById('selectedShipmentDateValue').value;
+                    const payload = {
+                        fileName: file.name,
+                        currentDate: AppState.globalCurrentDate.toISOString(),
+                        shipmentDate: shipmentVal,
+                        itemCount: wasteData.length,
+                        totalWaste: wasteData.reduce((acc, item) => acc + Math.abs(item.diff), 0),
+                        items: wasteData.map(function (row) {
+                            return {
+                                name: row.name,
+                                diff: Math.abs(row.diff) // Store as positive
+                            };
+                        })
+                    };
+                    window.saveToFirestore('waste-reports', payload)
+                        .then(function (id) {
+                            console.log('[Firebase] Waste report saved, doc:', id);
+                        })
+                        .catch(function (err) {
+                            console.warn('[Firebase] Firestore save failed:', err);
+                        });
+                }
             }
         } catch (err) {
             errorMsg.innerText = "Error processing CSV: " + err.message;
