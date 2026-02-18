@@ -70,31 +70,57 @@ const DEFAULTS = {
 // --- LIVE STATE ---
 
 const AppState = {
-    maxInventory: JSON.parse(localStorage.getItem('maxInventory')) || { ...DEFAULTS.maxInventory },
-    consumptionDict: JSON.parse(localStorage.getItem('consumptionDict')) || { ...DEFAULTS.consumption },
-    salesProjections: JSON.parse(localStorage.getItem('salesProjections')) || { ...DEFAULTS.salesProjections },
-    usagePerThousand: JSON.parse(localStorage.getItem('usagePerThousand')) || { ...DEFAULTS.usageRates },
+    maxInventory:      { ...DEFAULTS.maxInventory },
+    consumptionDict:   { ...DEFAULTS.consumption },
+    salesProjections:  { ...DEFAULTS.salesProjections },
+    usagePerThousand:  { ...DEFAULTS.usageRates },
     globalCurrentDate: new Date()
 };
-
-// Ensure all default keys exist in live state (merges new items into saved data)
-Object.keys(DEFAULTS.maxInventory).forEach(key => {
-    if (AppState.maxInventory[key] === undefined) {
-        AppState.maxInventory[key] = DEFAULTS.maxInventory[key];
-    }
-    if (AppState.consumptionDict[key] === undefined) {
-        AppState.consumptionDict[key] = DEFAULTS.consumption[key] || 0;
-    }
-    if (AppState.usagePerThousand[key] === undefined) {
-        AppState.usagePerThousand[key] = DEFAULTS.usageRates[key] || 0;
-    }
-});
 
 // --- PERSISTENCE ---
 
 function persistAll() {
-    localStorage.setItem('maxInventory', JSON.stringify(AppState.maxInventory));
-    localStorage.setItem('consumptionDict', JSON.stringify(AppState.consumptionDict));
-    localStorage.setItem('usagePerThousand', JSON.stringify(AppState.usagePerThousand));
-    localStorage.setItem('salesProjections', JSON.stringify(AppState.salesProjections));
+    if (window.saveSettingsToFirestore) {
+        window.saveSettingsToFirestore({
+            maxInventory:     AppState.maxInventory,
+            consumptionDict:  AppState.consumptionDict,
+            usagePerThousand: AppState.usagePerThousand,
+            salesProjections: AppState.salesProjections
+        });
+    }
+}
+
+/**
+ * Hydrate AppState from Firestore. Called once at boot before rendering.
+ * Falls back to DEFAULTS if no Firestore document exists yet.
+ */
+async function hydrateFromFirestore() {
+    if (!window.loadSettingsFromFirestore) {
+        console.warn('[State] loadSettingsFromFirestore not available yet.');
+        return;
+    }
+
+    const data = await window.loadSettingsFromFirestore();
+    if (data) {
+        if (data.maxInventory)     Object.assign(AppState.maxInventory, data.maxInventory);
+        if (data.consumptionDict)  Object.assign(AppState.consumptionDict, data.consumptionDict);
+        if (data.usagePerThousand) Object.assign(AppState.usagePerThousand, data.usagePerThousand);
+        if (data.salesProjections) Object.assign(AppState.salesProjections, data.salesProjections);
+    }
+
+    // Ensure any new default keys are present
+    Object.keys(DEFAULTS.maxInventory).forEach(key => {
+        if (AppState.maxInventory[key] === undefined)
+            AppState.maxInventory[key] = DEFAULTS.maxInventory[key];
+        if (AppState.consumptionDict[key] === undefined)
+            AppState.consumptionDict[key] = DEFAULTS.consumption[key] || 0;
+        if (AppState.usagePerThousand[key] === undefined)
+            AppState.usagePerThousand[key] = DEFAULTS.usageRates[key] || 0;
+    });
+
+    // First run: no document existed yet — seed Firestore with the defaults
+    if (!data) {
+        console.log('[State] Seeding Firestore with default settings...');
+        persistAll();
+    }
 }

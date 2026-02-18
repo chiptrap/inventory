@@ -62,7 +62,6 @@ function saveProjections() {
         }
     });
 
-    localStorage.setItem('salesProjections', JSON.stringify(AppState.salesProjections));
     applyProjectedUsage();
     renderSettings();
     showToast('Sales projections saved successfully!');

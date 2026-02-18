@@ -14,8 +14,15 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-storage.js";
 import {
     getFirestore,
+    initializeFirestore,
+    persistentLocalCache,
+    persistentMultipleTabManager,
     collection,
     addDoc,
+    doc,
+    getDoc,
+    getDocFromCache,
+    setDoc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import {
@@ -24,14 +31,36 @@ import {
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
-// --- Firebase Configuration (loaded from gitignored file) ---
-import { firebaseConfig } from "../firebase-config.js";
+// --- Firebase Configuration ---
+const firebaseConfig = {
+    apiKey: "AIzaSyDwSKAyQRZvLS1vv3xW4WcjArutzAmO5Ms",
+    authDomain: "inventory-4522d.firebaseapp.com",
+    projectId: "inventory-4522d",
+    storageBucket: "inventory-4522d.firebasestorage.app",
+    messagingSenderId: "932096360302",
+    appId: "1:932096360302:web:4c63305f276eecd7674b7f",
+    measurementId: "G-YYC91TPGLR"
+};
 
 // --- Initialize Services ---
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const storage = getStorage(app);
+
+// Use standard getFirestore for reliable connection
+// Note: If you need offline persistence, we can re-enable initializeFirestore later
 const db = getFirestore(app);
+
+/* 
+let db;
+try {
+    db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
+} catch (error) {
+    console.error("Firestore initialization error. Ensure the database is created in Firebase Console.", error);
+}
+*/
 const auth = getAuth(app);
 
 // --- Anonymous Auth (satisfies `request.auth != null` storage rules) ---
@@ -106,8 +135,68 @@ async function saveToFirestore(collectionName, data) {
     return docRef.id;
 }
 
+// --- App-Settings Persistence (single document) ---
+
+const SETTINGS_DOC_REF = doc(db, 'app-settings', 'current');
+
+/**
+ * Load the persisted settings from Firestore.
+ * Returns { maxInventory, consumptionDict, usagePerThousand, salesProjections }
+ * or null if the document doesn't exist yet (first run).
+ */
+async function loadSettingsFromFirestore() {
+    await authReady;
+
+    // 1. Try local cache first (instant, no network wait)
+    try {
+        const cached = await getDocFromCache(SETTINGS_DOC_REF);
+        if (cached.exists()) {
+            console.log('[Firebase] Settings loaded from cache (instant).');
+            // Refresh from server in the background for next time
+            getDoc(SETTINGS_DOC_REF).catch(() => {});
+            return cached.data();
+        }
+    } catch (_) { /* no cache yet — first run */ }
+
+    // 2. No cache available — must fetch from server (first run only)
+    try {
+        console.log('[Firebase] No cache — fetching from server...');
+        const snap = await getDoc(SETTINGS_DOC_REF);
+        if (snap.exists()) {
+            console.log('[Firebase] Settings loaded from Firestore.');
+            return snap.data();
+        }
+        console.log('[Firebase] No settings doc found — using defaults.');
+        return null;
+    } catch (err) {
+        console.warn('[Firebase] Server fetch failed — using defaults.', err);
+        return null;
+    }
+}
+
+/**
+ * Persist the four AppState properties to a single Firestore document.
+ * Uses setDoc (merge) so partial updates don't wipe other fields.
+ *
+ * @param {Object} data - { maxInventory, consumptionDict, usagePerThousand, salesProjections }
+ */
+async function saveSettingsToFirestore(data) {
+    await authReady;
+    try {
+        await setDoc(SETTINGS_DOC_REF, {
+            ...data,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+        console.log('[Firebase] Settings saved to Firestore.');
+    } catch (err) {
+        console.warn('[Firebase] Failed to save settings:', err);
+    }
+}
+
 // --- Expose on window for non-module scripts ---
 window.uploadCSVToFirebase = uploadCSVToFirebase;
 window.saveToFirestore = saveToFirestore;
+window.loadSettingsFromFirestore = loadSettingsFromFirestore;
+window.saveSettingsToFirestore = saveSettingsToFirestore;
 
 console.log('[Firebase] Initialized — Storage & Firestore ready.');
