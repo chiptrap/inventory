@@ -1,0 +1,17 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+firebase-config.js
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+*.swo
+
+# Node (if ever used)
+node_modules/

@@ -24,16 +24,8 @@ import {
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-auth.js";
 
-// --- Firebase Configuration ---
-const firebaseConfig = {
-    apiKey: "AIzaSyDwSKAyQRZvLS1vv3xW4WcjArutzAmO5Ms",
-    authDomain: "inventory-4522d.firebaseapp.com",
-    projectId: "inventory-4522d",
-    storageBucket: "inventory-4522d.firebasestorage.app",
-    messagingSenderId: "932096360302",
-    appId: "1:932096360302:web:4c63305f276eecd7674b7f",
-    measurementId: "G-YYC91TPGLR"
-};
+// --- Firebase Configuration (loaded from gitignored file) ---
+import { firebaseConfig } from "../firebase-config.js";
 
 // --- Initialize Services ---
 const app = initializeApp(firebaseConfig);

@@ -274,8 +274,12 @@ function processRow(row, currentDate, shipmentDate, daysUntilShipment) {
         usageUntilShipment = consumption * daysUntilShipment;
     }
 
-    const totalAfterOrder = row.onHand + row.inTransit + row.amountToOrder;
-    const estimatedInventory = totalAfterOrder - usageUntilShipment;
+    // Usage can only draw from what's on hand before shipment arrives
+    const availableBeforeShipment = Math.max(0, row.onHand + row.inTransit);
+    usageUntilShipment = Math.min(usageUntilShipment, availableBeforeShipment);
+
+    // Estimated inventory = what's left after usage + what arrives with the order
+    const estimatedInventory = (availableBeforeShipment - usageUntilShipment) + row.amountToOrder;
 
     let diff = maxInv - estimatedInventory;
     if (row.amountToOrder === 0 && diff < 0) diff = 0;
