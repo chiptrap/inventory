@@ -193,6 +193,11 @@ function calculateAndRender(data) {
     const shipment = new Date(shipmentVal);
     shipment.setHours(0, 0, 0, 0);
 
+    const nextShipment = getNextShipmentDate(shipment);
+    nextShipment.setHours(0, 0, 0, 0);
+    const msUntilNext = nextShipment - shipment;
+    const daysBetweenShipments = Math.max(1, Math.ceil(msUntilNext / (1000 * 60 * 60 * 24)));
+
     const errorMsg = document.getElementById('error-msg');
     const daysUntilShipment = Math.ceil(Math.abs(shipment - current) / (1000 * 60 * 60 * 24));
 
@@ -202,7 +207,7 @@ function calculateAndRender(data) {
     let overOrderCount = 0;
 
     const processedData = data
-        .map(row => processRow(row, current, shipment, daysUntilShipment))
+        .map(row => processRow(row, current, shipment, daysUntilShipment, nextShipment, daysBetweenShipments))
         .filter(item => item !== null);
 
     if (processedData.length === 0) {
@@ -247,6 +252,7 @@ function calculateAndRender(data) {
             <td>${item.inTransit.toFixed(2)}</td>
             <td>${item.amountToOrder.toFixed(2)}</td>
             <td>${item.estimatedInventory.toFixed(2)}</td>
+            <td>${item.estimatedNextInventory.toFixed(2)}</td>
             <td>${item.diff.toFixed(2)}</td>
             <td><span style="font-weight:800; color:${statusColor}">
                 ${statusText}
@@ -271,7 +277,7 @@ function calculateAndRender(data) {
  * Falls back to flat consumptionDict rate if item has no UPT data.
  * Returns null if the item should be skipped.
  */
-function processRow(row, currentDate, shipmentDate, daysUntilShipment) {
+function processRow(row, currentDate, shipmentDate, daysUntilShipment, nextShipmentDate, daysBetweenShipments) {
     // Exclude specific double entry
     if (row.name.includes("Corn w/ Poblano Mix, 20lb")) return null;
 
@@ -296,16 +302,27 @@ function processRow(row, currentDate, shipmentDate, daysUntilShipment) {
     // Estimated inventory = what's left after usage + what arrives with the order
     const estimatedInventory = (availableBeforeShipment - usageUntilShipment) + row.amountToOrder;
 
+    // --- Next Shipment Logic ---
+    let usageBetweenShipments = calculateUsageForPeriod(matchedKey, shipmentDate, nextShipmentDate);
+    if (usageBetweenShipments === 0) {
+       const consumption = AppState.consumptionDict[matchedKey] || 1;
+       usageBetweenShipments = consumption * daysBetweenShipments;
+    }
+    const estimatedNextInventory = estimatedInventory - usageBetweenShipments; 
+
     let diff = maxInv - estimatedInventory;
     if (row.amountToOrder === 0 && diff < 0) diff = 0;
 
     const isOver = diff < -0.5;
-    const isUnder = !isOver && estimatedInventory < 1;
+    // Under order if we run low EITHER by this shipment OR by the next shipment
+    // AND the variance is greater than -1 (meaning we aren't significantly over-stocked)
+    const isUnder = !isOver && (estimatedInventory < 1 || estimatedNextInventory < 1) && diff < -1;
 
     return {
         ...row,
         matchedKey,
         estimatedInventory,
+        estimatedNextInventory,
         diff,
         isOver,
         isUnder
@@ -353,7 +370,7 @@ function sortResultsTable(column) {
         else if (item.isUnder) tr.classList.add('under-order');
 
         const statusColor = item.isOver ? '#d32f2f' : item.isUnder ? '#b8860b' : '#2e7d32';
-        const statusText = item.isOver ? 'OVER ORDER' : item.isUnder ? 'UNDER ORDER' : 'OK';
+        const statusText = item.isOver ? 'OVER ORDER' : item.isUnder ? 'UNDER' : 'OK';
 
         tr.innerHTML = `
             <td><strong>${item.name}</strong></td>
@@ -361,6 +378,7 @@ function sortResultsTable(column) {
             <td>${item.inTransit.toFixed(2)}</td>
             <td>${item.amountToOrder.toFixed(2)}</td>
             <td>${item.estimatedInventory.toFixed(2)}</td>
+             <td>${item.estimatedNextInventory.toFixed(2)}</td>
             <td>${item.diff.toFixed(2)}</td>
             <td><span style="font-weight:800; color:${statusColor}">
                 ${statusText}
@@ -379,6 +397,24 @@ function updateSortIndicators(activeColumn, direction) {
             th.classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
         }
     });
+}
+
+/**
+ * Determine the next shipment date after the given shipment date.
+ * Allowed days: Mon(1), Wed(3), Fri(5), Sat(6).
+ * Same logic as dates.js but focused on finding the immediate next slot.
+ */
+function getNextShipmentDate(currentShipmentDate) {
+    const allowedDays = [1, 3, 5, 6];
+    const checkDate = new Date(currentShipmentDate);
+    // Determine next shipment day
+    for (let i = 0; i < 7; i++) {
+        checkDate.setDate(checkDate.getDate() + 1);
+        if (allowedDays.includes(checkDate.getDay())) {
+            return checkDate;
+        }
+    }
+    return checkDate; // Fallback
 }
 
 /**
