@@ -23,7 +23,8 @@ import {
     getDoc,
     getDocFromCache,
     setDoc,
-    serverTimestamp
+    serverTimestamp,
+    increment
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import {
     getAuth,
@@ -147,20 +148,9 @@ const SETTINGS_DOC_REF = doc(db, 'app-settings', 'current');
 async function loadSettingsFromFirestore() {
     await authReady;
 
-    // 1. Try local cache first (instant, no network wait)
+    // 1. No cache used — always fetch from server
     try {
-        const cached = await getDocFromCache(SETTINGS_DOC_REF);
-        if (cached.exists()) {
-            console.log('[Firebase] Settings loaded from cache (instant).');
-            // Refresh from server in the background for next time
-            getDoc(SETTINGS_DOC_REF).catch(() => {});
-            return cached.data();
-        }
-    } catch (_) { /* no cache yet — first run */ }
-
-    // 2. No cache available — must fetch from server (first run only)
-    try {
-        console.log('[Firebase] No cache — fetching from server...');
+        console.log('[Firebase] Fetching settings from server...');
         const snap = await getDoc(SETTINGS_DOC_REF);
         if (snap.exists()) {
             console.log('[Firebase] Settings loaded from Firestore.');
@@ -193,10 +183,43 @@ async function saveSettingsToFirestore(data) {
     }
 }
 
+// --- Statistics Helpers ---
+
+/**
+ * Updates the running variance totals for items.
+ * Each item in `items` should have `{ matchedKey, diff }`.
+ * Targets `stats/variance-totals` doc.
+ */
+async function updateVarianceTotals(items) {
+    if (!items || !items.length) return;
+    
+    await authReady;
+
+    const updates = {};
+    for (const item of items) {
+        // Only proceed if we have a valid key and a numeric diff
+        if (item.matchedKey && typeof item.diff === 'number') {
+            updates[item.matchedKey] = increment(item.diff);
+        }
+    }
+
+    if (Object.keys(updates).length === 0) return;
+
+    try {
+        const statsRef = doc(db, "stats", "variance-totals");
+        // merge: true ensures we don't overwrite other fields and creates the doc if missing
+        await setDoc(statsRef, updates, { merge: true });
+        console.log("[Firebase] Updated variance totals.");
+    } catch (err) {
+        console.error("[Firebase] Failed to update variance totals:", err);
+    }
+}
+
 // --- Expose on window for non-module scripts ---
 window.uploadCSVToFirebase = uploadCSVToFirebase;
 window.saveToFirestore = saveToFirestore;
 window.loadSettingsFromFirestore = loadSettingsFromFirestore;
 window.saveSettingsToFirestore = saveSettingsToFirestore;
+window.updateVarianceTotals = updateVarianceTotals;
 
 console.log('[Firebase] Initialized — Storage & Firestore ready.');

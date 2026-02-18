@@ -53,7 +53,7 @@ function updateFromMax(key, value) {
  * Silently recalculates daily usage for all items based on today's projected sales.
  * Called on load and whenever projections are saved.
  */
-function applyProjectedUsage() {
+function applyProjectedUsage(shouldPersist = true) {
     const today = new Date();
     const dayName = today.toLocaleDateString('en-US', { weekday: 'long' });
     const projectedSales = AppState.salesProjections[dayName] || 0;
@@ -64,7 +64,7 @@ function applyProjectedUsage() {
         AppState.consumptionDict[key] = parseFloat((upt * multiplier).toFixed(2));
     });
 
-    persistAll();
+    if (shouldPersist) persistAll();
 }
 
 function applyUsageToSettings() {

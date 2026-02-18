@@ -6,7 +6,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     await hydrateFromFirestore();
     initDates();
-    applyProjectedUsage();
+    applyProjectedUsage(false);
     renderSettings();
     renderUsageSettings();
     renderProjections();

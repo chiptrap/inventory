@@ -62,21 +62,24 @@ function processFile() {
             calculateAndRender(data);
 
             // Save parsed results to Firestore (non-blocking)
-            if (window.saveToFirestore && data.length > 0) {
+            // Use _lastProcessedData which has the calculated diff & variance
+            if (window.saveToFirestore && _lastProcessedData && _lastProcessedData.length > 0) {
+                // 1. Update running variance totals
+                if (window.updateVarianceTotals) {
+                    window.updateVarianceTotals(_lastProcessedData);
+                }
+
+                // 2. Save individual report (only name & variance as requested)
                 const shipmentVal = document.getElementById('selectedShipmentDateValue').value;
                 const payload = {
                     fileName: file.name,
                     currentDate: AppState.globalCurrentDate.toISOString(),
                     shipmentDate: shipmentVal,
-                    itemCount: data.length,
-                    items: data.map(function (row) {
-                        var matchedKey = findMatchingItemKey(row.name, AppState.maxInventory);
+                    itemCount: _lastProcessedData.length,
+                    items: _lastProcessedData.map(function (row) {
                         return {
                             name: row.name,
-                            matchedKey: matchedKey || null,
-                            onHand: row.onHand,
-                            inTransit: row.inTransit,
-                            amountToOrder: row.amountToOrder
+                            diff: row.diff
                         };
                     })
                 };
