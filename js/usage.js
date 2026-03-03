@@ -121,7 +121,6 @@ function processRatesCSV(input) {
         window.uploadCSVToFirebase(file, 'usage-rates')
             .then(function (url) {
                 console.log('[Firebase] Usage CSV uploaded:', url);
-                showToast('Usage CSV backed up to cloud.');
             })
             .catch(function (err) {
                 console.warn('[Firebase] Storage upload failed:', err);

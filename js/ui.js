@@ -9,6 +9,11 @@ function switchSection(sectionId) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById(sectionId).classList.add('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Auto-refresh stats if switching to stats tab
+    if (sectionId === 'stats' && typeof renderStats === 'function') {
+        renderStats();
+    }
 }
 
 function switchSettingsTab(tabId) {

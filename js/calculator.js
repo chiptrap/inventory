@@ -48,7 +48,6 @@ function processFile() {
         window.uploadCSVToFirebase(file, 'inventory-order')
             .then(function (url) {
                 console.log('[Firebase] Inventory CSV uploaded:', url);
-                showToast('CSV backed up to cloud.');
             })
             .catch(function (err) {
                 console.warn('[Firebase] Storage upload failed:', err);
@@ -56,7 +55,7 @@ function processFile() {
     }
 
     const reader = new FileReader();
-    reader.onload = function (e) {
+    reader.onload = async function (e) {
         try {
             const data = parseCSV(e.target.result);
             calculateAndRender(data);
@@ -69,19 +68,26 @@ function processFile() {
                 const wasteData = _lastProcessedData.filter(item => item.diff < 0);
 
                 if (wasteData.length > 0) {
-                    // 1. Update running variance totals (only for waste items, converted to positive)
-                    if (window.updateVarianceTotals) {
-                        // Create a mapped array with positive diffs effectively
-                        const positiveWasteData = wasteData.map(item => ({
-                            ...item,
-                            diff: Math.abs(item.diff) // Store as positive "waste saved"
-                        }));
-                        window.updateVarianceTotals(positiveWasteData);
+                    // --- Check for existing report ---
+                    const fileDate = new Date(AppState.globalCurrentDate);
+                    const yyyy = fileDate.getFullYear();
+                    const mm = String(fileDate.getMonth() + 1).padStart(2, '0');
+                    const dd = String(fileDate.getDate()).padStart(2, '0');
+                    const reportDateKey = `${yyyy}-${mm}-${dd}`;
+
+                    if (window.checkWasteReportExists) {
+                        const exists = await window.checkWasteReportExists(reportDateKey);
+                        if (exists) {
+                            console.log('[Calculator] Waste report for today already exists. Skipping save.');
+                            if (typeof showToast === 'function') showToast('Waste report for this date already exists.');
+                            return; 
+                        }
                     }
 
-                    // 2. Save individual report (only name & positive waste for waste items)
+                    // Save individual report (only name & positive waste for waste items)
                     const shipmentVal = document.getElementById('selectedShipmentDateValue').value;
                     const payload = {
+                        reportDate: reportDateKey,
                         fileName: file.name,
                         currentDate: AppState.globalCurrentDate.toISOString(),
                         shipmentDate: shipmentVal,
@@ -90,6 +96,7 @@ function processFile() {
                         items: wasteData.map(function (row) {
                             return {
                                 name: row.name,
+                                matchedKey: row.matchedKey,
                                 diff: Math.abs(row.diff) // Store as positive
                             };
                         })

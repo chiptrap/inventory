@@ -24,7 +24,10 @@ import {
     getDocFromCache,
     setDoc,
     serverTimestamp,
-    increment
+    query,
+    where,
+    getDocs,
+    limit
 } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
 import {
     getAuth,
@@ -186,40 +189,52 @@ async function saveSettingsToFirestore(data) {
 // --- Statistics Helpers ---
 
 /**
- * Updates the running variance totals for items.
- * Each item in `items` should have `{ matchedKey, diff }`.
- * Targets `stats/variance-totals` doc.
+ * Fetch waste reports starting from a given date (inclusive).
+ * @param {string} startDate - YYYY-MM-DD
+ * @returns {Promise<Array>} List of report objects (data + id)
  */
-async function updateVarianceTotals(items) {
-    if (!items || !items.length) return;
-    
+async function fetchWasteReports(startDate) {
     await authReady;
-
-    const updates = {};
-    for (const item of items) {
-        // Only proceed if we have a valid key and a numeric diff
-        if (item.matchedKey && typeof item.diff === 'number') {
-            updates[item.matchedKey] = increment(item.diff);
-        }
-    }
-
-    if (Object.keys(updates).length === 0) return;
-
     try {
-        const statsRef = doc(db, "stats", "variance-totals");
-        // merge: true ensures we don't overwrite other fields and creates the doc if missing
-        await setDoc(statsRef, updates, { merge: true });
-        console.log("[Firebase] Updated variance totals.");
+        const q = query(
+            collection(db, 'waste-reports'),
+            where('reportDate', '>=', startDate)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (err) {
-        console.error("[Firebase] Failed to update variance totals:", err);
+        console.warn('[Firebase] fetchWasteReports failed:', err);
+        return [];
+    }
+}
+
+/**
+ * Check if a waste report already exists for a specific date (YYYY-MM-DD).
+ * @param {string} dateString - The date key to check.
+ * @returns {Promise<boolean>} True if a report exists, false otherwise.
+ */
+async function checkWasteReportExists(dateString) {
+    await authReady;
+    try {
+        const q = query(
+            collection(db, 'waste-reports'), 
+            where('reportDate', '==', dateString), 
+            limit(1)
+        );
+        const snapshot = await getDocs(q);
+        return !snapshot.empty;
+    } catch (err) {
+        console.warn('[Firebase] Check failed:', err);
+        return false; 
     }
 }
 
 // --- Expose on window for non-module scripts ---
+window.checkWasteReportExists = checkWasteReportExists;
 window.uploadCSVToFirebase = uploadCSVToFirebase;
 window.saveToFirestore = saveToFirestore;
 window.loadSettingsFromFirestore = loadSettingsFromFirestore;
 window.saveSettingsToFirestore = saveSettingsToFirestore;
-window.updateVarianceTotals = updateVarianceTotals;
+window.fetchWasteReports = fetchWasteReports;
 
 console.log('[Firebase] Initialized — Storage & Firestore ready.');

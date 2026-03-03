@@ -16,6 +16,16 @@ const DEFAULTS = {
         "Green Tomatillo Salsa, Finished, 40lbs": 6, "Clementine Oranges": 2, "Jalapeno Peppers, 10lb": 4
     },
 
+    unitPrices: {
+        "Limes, 40#": 0, "Lettuce": 0, "Cilantro": 0, "Chicken": 0, "Steak": 0,
+        "Carnitas": 0, "Barbacoa": 0, "Chips Pre-Cut, Unfried": 0,
+        "Adobo Marinade 30 lb": 0, "Queso": 0, "Sofritas": 0, "Lemon/Lime Juice": 0, "Cheese": 0,
+        "Corn w/ Poblano Mix": 0, "Bell Peppers": 0, "Tomato": 0, "Avocados": 0,
+        "Burrito Size Tortilla 144 ct": 0, "Flour Tortilla": 0, "Taco Size Crispy Corn Tortilla PF, 240 ct": 0,
+        "Black beans": 0, "Pinto beans": 0, "Sour Cream": 0, "Red Tomatillo Salsa 40 lb": 0,
+        "Green Tomatillo Salsa, Finished, 40lbs": 0, "Clementine Oranges": 0, "Jalapeno Peppers, 10lb": 0
+    },
+
     usageRates: {
         "Adobo Marinade 30 lb": 0.0100,
         "Avocados": 0.5200,
@@ -72,6 +82,7 @@ const DEFAULTS = {
 const AppState = {
     maxInventory:      { ...DEFAULTS.maxInventory },
     consumptionDict:   { ...DEFAULTS.consumption },
+    unitPrices:        { ...DEFAULTS.unitPrices },
     salesProjections:  { ...DEFAULTS.salesProjections },
     usagePerThousand:  { ...DEFAULTS.usageRates },
     globalCurrentDate: new Date()
@@ -84,6 +95,7 @@ function persistAll() {
         window.saveSettingsToFirestore({
             maxInventory:     AppState.maxInventory,
             consumptionDict:  AppState.consumptionDict,
+            unitPrices:       AppState.unitPrices,
             usagePerThousand: AppState.usagePerThousand,
             salesProjections: AppState.salesProjections
         });
@@ -104,6 +116,7 @@ async function hydrateFromFirestore() {
     if (data) {
         if (data.maxInventory)     Object.assign(AppState.maxInventory, data.maxInventory);
         if (data.consumptionDict)  Object.assign(AppState.consumptionDict, data.consumptionDict);
+        if (data.unitPrices)       Object.assign(AppState.unitPrices, data.unitPrices);
         if (data.usagePerThousand) Object.assign(AppState.usagePerThousand, data.usagePerThousand);
         if (data.salesProjections) Object.assign(AppState.salesProjections, data.salesProjections);
     }
@@ -114,6 +127,8 @@ async function hydrateFromFirestore() {
             AppState.maxInventory[key] = DEFAULTS.maxInventory[key];
         if (AppState.consumptionDict[key] === undefined)
             AppState.consumptionDict[key] = DEFAULTS.consumption[key] || 0;
+        if (AppState.unitPrices[key] === undefined)
+            AppState.unitPrices[key] = DEFAULTS.unitPrices[key] || 0;
         if (AppState.usagePerThousand[key] === undefined)
             AppState.usagePerThousand[key] = DEFAULTS.usageRates[key] || 0;
     });
