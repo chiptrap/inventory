@@ -5,7 +5,7 @@
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-analytics.js";
+// import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-analytics.js";
 import {
     getStorage,
     ref as storageRef,
@@ -48,7 +48,7 @@ const firebaseConfig = {
 
 // --- Initialize Services ---
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+// const analytics = getAnalytics(app);
 const storage = getStorage(app);
 
 // Use standard getFirestore for reliable connection

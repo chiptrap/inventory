@@ -5,7 +5,7 @@
 
 let wasteChartInstance = null;
 
-async function renderStats() {
+async function renderStats(retryCount = 0) {
     console.log("Rendering Stats Page...");
 
     // UI Elements
@@ -59,9 +59,13 @@ async function renderStats() {
 
         // 2. Fetch Data
         if (!window.fetchWasteReports) {
-            console.warn("[Stats] fetchWasteReports not ready.");
-            // Retry once after 500ms if Firebase isn't ready
-            setTimeout(renderStats, 500); 
+            if (retryCount < 10) {
+                console.warn(`[Stats] fetchWasteReports not ready (attempt ${retryCount + 1}).`);
+                setTimeout(() => renderStats(retryCount + 1), 500);
+            } else {
+                console.error("[Stats] fetchWasteReports failed to initialize.");
+                alert("Error: Firebase services could not be loaded. Check your connection or ad blocker.");
+            }
             return;
         }
 
